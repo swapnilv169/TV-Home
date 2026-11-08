@@ -1,0 +1,40 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'com.veyra.tvmanager'
+    compileSdk 34
+    signingConfigs {
+        release {
+            if (rootProject.hasReleaseCredentials) {
+                storeFile rootProject.file(rootProject.releaseCredentials.store)
+                storePassword rootProject.releaseCredentials.storePassword
+                keyAlias rootProject.releaseCredentials.alias
+                keyPassword rootProject.releaseCredentials.keyPassword
+            }
+        }
+    }
+
+    defaultConfig { applicationId 'com.veyra.tvmanager'; minSdk 28; targetSdk 34; versionCode rootProject.appVersions.getProperty('phoneCode').toInteger(); versionName rootProject.appVersions.getProperty('phoneName'); testInstrumentationRunner 'com.veyra.tvmanager.StudioInstrumentation' }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    lint { disable 'ExpiredTargetSdkVersion' }
+    sourceSets.main.java.srcDir '../common/src/main/java'
+    buildFeatures { buildConfig true }
+    defaultConfig {
+        buildConfigField 'int', 'BUNDLED_LAUNCHER_VERSION_CODE', rootProject.appVersions.getProperty('tvCode')
+        buildConfigField 'String', 'BUNDLED_LAUNCHER_VERSION_NAME', '"' + rootProject.appVersions.getProperty('tvName') + '"'
+    }
+    buildTypes { release { debuggable false; minifyEnabled false; signingConfig signingConfigs.release } }
+    sourceSets.debug.assets.srcDir layout.buildDirectory.dir('bundled/debug')
+    sourceSets.release.assets.srcDir layout.buildDirectory.dir('bundled/release')
+}
+['debug', 'release'].each { variant ->
+    def capitalized = variant.capitalize()
+    def bundleTask = tasks.register("bundle${capitalized}Launcher", Copy) {
+        dependsOn ":app:assemble${capitalized}"
+        from project(':app').layout.buildDirectory.file("outputs/apk/${variant}/app-${variant}.apk")
+        into layout.buildDirectory.dir("bundled/${variant}")
+        rename { 'TV-Home.apk' }
+    }
+    tasks.matching { it.name == "pre${capitalized}Build" }.configureEach { dependsOn bundleTask }
+}
+
+tasks.matching { it.name == 'preReleaseBuild' }.configureEach { dependsOn rootProject.tasks.named('verifyReleaseSigning') }

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Window changes from all apps: needed to cancel a redirect when something else opens over Amazon's home
+     screen. Content is queried only for the system power dialog after the user selects Restart. -->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowsChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagReportViewIds|flagRetrieveInteractiveWindows"
+    android:notificationTimeout="0"
+    android:canRetrieveWindowContent="true"
+    android:description="@string/home_redirect_description" />

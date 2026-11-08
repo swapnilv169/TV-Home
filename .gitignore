@@ -1,0 +1,21 @@
+# Build output and local tooling
+.gradle/
+**/build/
+local.properties
+**/local.properties
+work/
+*.apk
+*.aab
+*.zip
+*.log
+__pycache__/
+# Never publish signing keys or personal device state
+*.jks
+*.keystore
+*.pem
+*.key
+adbkey*
+*-restore.json
+*-device.json
+.env
+.env.*

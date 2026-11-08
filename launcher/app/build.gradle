@@ -1,0 +1,56 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.gathin.tvhome'
+    compileSdk 34
+    signingConfigs {
+        release {
+            if (rootProject.hasReleaseCredentials) {
+                storeFile rootProject.file(rootProject.releaseCredentials.store)
+                storePassword rootProject.releaseCredentials.storePassword
+                keyAlias rootProject.releaseCredentials.alias
+                keyPassword rootProject.releaseCredentials.keyPassword
+            }
+        }
+    }
+
+
+    lint {
+        // Private sideloaded Fire OS app; not submitted to Google Play.
+        disable 'ExpiredTargetSdkVersion'
+    }
+
+    defaultConfig {
+        applicationId 'com.gathin.tvhome'
+        minSdk 25
+        targetSdk 29
+        versionCode rootProject.appVersions.getProperty('tvCode').toInteger()
+        versionName rootProject.appVersions.getProperty('tvName')
+        testInstrumentationRunner 'com.gathin.tvhome.HomeVisualTest'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            debuggable false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    // Wallpapers belong to users; no personal image is shipped in either APK.
+    sourceSets.main.java.srcDir '../common/src/main/java'
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+
+
+}
+
+tasks.matching { it.name == 'preReleaseBuild' }.configureEach { dependsOn rootProject.tasks.named('verifyReleaseSigning') }

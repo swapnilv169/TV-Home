@@ -1,0 +1,70 @@
+name: Build Android apps
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools'
+          log-accepted-android-sdk-licenses: false
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install Android SDK packages
+        run: sdkmanager 'platforms;android-34' 'build-tools;34.0.0'
+      - name: Build and lint both apps
+        working-directory: launcher
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug :companion:assembleDebug :app:lintDebug :companion:lintDebug --no-daemon --console=plain
+      - name: Run Python and Java regression checks
+        shell: bash
+        run: |
+          mkdir -p build/test-deps
+          curl --fail --location --retry 3 --output build/test-deps/json.jar https://repo.maven.apache.org/maven2/org/json/json/20240303/json-20240303.jar
+          python3 tools/run_checks.py --variant debug --json-jar build/test-deps/json.jar
+      - name: Prepare development downloads
+        shell: bash
+        run: |
+          mkdir -p artifacts/phone artifacts/tv
+          cp launcher/companion/build/outputs/apk/debug/companion-debug.apk artifacts/phone/TV-Home-Studio-PHONE-development.apk
+          cp launcher/app/build/outputs/apk/debug/app-debug.apk artifacts/tv/TV-Home-Launcher-TV-development.apk
+          unzip -p artifacts/phone/TV-Home-Studio-PHONE-development.apk assets/TV-Home.apk > artifacts/embedded.apk
+          cmp artifacts/embedded.apk artifacts/tv/TV-Home-Launcher-TV-development.apk
+          (cd artifacts/phone && sha256sum *.apk > SHA256SUMS.txt)
+          (cd artifacts/tv && sha256sum *.apk > SHA256SUMS.txt)
+          for directory in phone tv; do
+            printf '%s\n' 'Development build, not a public release. Uses a temporary CI debug signing key; it cannot update a published APK or reliably update an earlier CI build. Use Releases for normal installation.' > "artifacts/$directory/README.txt"
+          done
+          printf '%s\n' '### Development builds' 'Phone: includes the matching TV launcher.' 'TV: for direct ADB installation.' 'These are temporary debug-signed artifacts, not release updates. Use the Releases page for normal installs.' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TV-Home-Studio-PHONE-development
+          path: artifacts/phone/
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TV-Home-Launcher-TV-development
+          path: artifacts/tv/
+          if-no-files-found: error
+          retention-days: 14

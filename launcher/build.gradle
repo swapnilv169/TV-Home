@@ -1,0 +1,27 @@
+plugins {
+    id 'com.android.application' version '8.5.2' apply false
+}
+
+def versions = new Properties()
+file('versions.properties').withInputStream { versions.load(it) }
+ext.appVersions = versions
+ext.releaseCredentials = [
+    store: System.getenv('TVHOME_KEYSTORE'),
+    storePassword: System.getenv('TVHOME_STORE_PASSWORD'),
+    alias: System.getenv('TVHOME_KEY_ALIAS'),
+    keyPassword: System.getenv('TVHOME_KEY_PASSWORD')
+]
+ext.hasReleaseCredentials = releaseCredentials.values().every { it != null && !it.isEmpty() }
+tasks.register('verifyReleaseSigning') {
+    doLast {
+        if (!hasReleaseCredentials) throw new GradleException('Release signing requires TVHOME_KEYSTORE, TVHOME_STORE_PASSWORD, TVHOME_KEY_ALIAS and TVHOME_KEY_PASSWORD. No unsigned release is produced.')
+        def keyFile = file(releaseCredentials.store)
+        if (!keyFile.isFile()) throw new GradleException('Release keystore is unavailable')
+        def store = java.security.KeyStore.getInstance(keyFile, releaseCredentials.storePassword.toCharArray())
+        def certificate = store.getCertificate(releaseCredentials.alias)
+        if (certificate == null || !store.isKeyEntry(releaseCredentials.alias)) throw new GradleException('Release signing alias is unavailable')
+        def actual = java.security.MessageDigest.getInstance('SHA-256').digest(certificate.encoded).encodeHex().toString()
+        def expected = (System.getenv('TVHOME_EXPECTED_CERT_SHA256') ?: '81ce28ccb3e31212db296e3abf30f904daa2c3d92834958627dcf85f2a3b6e86').replace(':','').toLowerCase()
+        if (!(expected ==~ /[0-9a-f]{64}/) || actual != expected) throw new GradleException('Signing certificate differs from the expected upgrade certificate. Use the existing key; forks must explicitly set their own TVHOME_EXPECTED_CERT_SHA256.')
+    }
+}
